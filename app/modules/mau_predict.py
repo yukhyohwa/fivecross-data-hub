@@ -83,12 +83,25 @@ def run():
     st.title('基于分类用户次月留存率的MAU预测工具')
     st.subheader('1.获取历史参考值', divider='rainbow')
     
+    from app.games_config import GAMES_CONFIG
+    
     with st.form(key='query_form'):
-        environment = st.radio("执行环境", ('domestic', 'overseas'))
+        # environment = st.radio("执行环境", ('domestic', 'overseas')) # Derived from config now
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            app_id = st.text_input("游戏ID", "13001230")
+             # Create options list
+            game_options = list(GAMES_CONFIG.keys())
+            selected_key = st.selectbox(
+                "Select Game", 
+                game_options, 
+                format_func=lambda x: GAMES_CONFIG[x]['label']
+            )
+            # Get config
+            game_conf = GAMES_CONFIG[selected_key]
+            app_id = game_conf.get('game_id', '')
+            environment = game_conf.get('environment', 'domestic')
+
         with col2:
             start_month = st.text_input("历史开始月份", "202401")
         with col3:
@@ -101,38 +114,15 @@ def run():
     df = pd.DataFrame()
     
     if submit_button:
-        sql = f"""
-        SELECT data_date, 
-            COUNT(DISTINCT CASE WHEN user_type = 'nuu' THEN lcm_id ELSE NULL END) AS nuu,
-            COUNT(DISTINCT CASE WHEN user_type = 'ouu' THEN lcm_id ELSE NULL END) AS ouu,
-            COUNT(DISTINCT CASE WHEN user_type = 'ruu' THEN lcm_id ELSE NULL END) AS ruu,
-            ROUND(COUNT(DISTINCT CASE WHEN user_type = 'nuu' AND if_stay = 1 THEN lcm_id ELSE NULL END) / COUNT(DISTINCT CASE WHEN user_type = 'nuu' THEN lcm_id ELSE NULL END), 4) AS nuu_retention_rate,
-            ROUND(COUNT(DISTINCT CASE WHEN user_type = 'ouu' AND if_stay = 1 THEN lcm_id ELSE NULL END) / COUNT(DISTINCT CASE WHEN user_type = 'ouu' THEN lcm_id ELSE NULL END), 4) AS ouu_retention_rate,
-            ROUND(COUNT(DISTINCT CASE WHEN user_type = 'ruu' AND if_stay = 1 THEN lcm_id ELSE NULL END) / COUNT(DISTINCT CASE WHEN user_type = 'ruu' THEN lcm_id ELSE NULL END), 4) AS ruu_retention_rate
-        FROM 
-        (
-            SELECT a.data_date, a.lcm_id, user_type, CASE WHEN b.lcm_id IS NOT NULL THEN 1 ELSE 0 END AS if_stay
-            FROM 
-            (
-                SELECT SUBSTR(TO_DATE(month, 'yyyyMM'), 1, 10) AS data_date, lcm_id, user_type
-                FROM dm_platform.monthly_lcx_user_info 
-                WHERE app_id = '{app_id}'
-                    AND month >= '{start_month}'
-                    AND month <= '{end_month}'
-                    AND is_water = '不是水'
-                    AND is_black = '不是黑'
-            ) a
-            LEFT JOIN
-            (
-                SELECT SUBSTR(TO_DATE(month, 'yyyyMM'), 1, 10) AS data_date, lcm_id
-                FROM dm_platform.monthly_lcx_user_info 
-                WHERE app_id = '{app_id}'
-                    AND month >= '{start_month}'
-            ) b ON a.lcm_id = b.lcm_id AND MONTHS_BETWEEN(b.data_date, a.data_date) = 1
-        ) x
-        GROUP BY data_date
-        ORDER BY data_date
-        """
+        # Load SQL from template
+        import os
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        template_path = os.path.join(base_dir, 'sql_templates', 'system', 'mau_predict_history.sql')
+        
+        with open(template_path, 'r', encoding='utf-8') as f:
+            raw_sql = f.read()
+
+        sql = raw_sql.format(app_id=app_id, start_month=start_month, end_month=end_month)
         df = execute_sql_query('odps', environment, sql, config)
         df = df.rename(columns={
             'data_date': '月份',

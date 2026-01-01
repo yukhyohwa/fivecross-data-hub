@@ -24,18 +24,14 @@ def main():
         "Query Tools",
         "Data Management",
         "Analytics & Dashboard",
-        "Predictions",
-        "Utilities"
+        "Predictions"
     ])
     
     module_selection = None
     
     if category == "Query Tools":
         module_selection = st.sidebar.radio("Tool", [
-            "ODPS Query (All)",
-            "ODPS Query (WINGS)",
-            "ODPS Query (JUMP)",
-            "ODPS Query (OP)",
+            "Game SQL Library",
             "SQL Execution Tool (Adv)"
         ])
     elif category == "Data Management":
@@ -45,8 +41,7 @@ def main():
         ])
     elif category == "Analytics & Dashboard":
         module_selection = st.sidebar.radio("Tool", [
-            "KPI Dashboard",
-            "Data Explorer"
+            "KPI Dashboard"
         ])
     elif category == "Predictions":
         module_selection = st.sidebar.radio("Tool", [
@@ -54,30 +49,14 @@ def main():
             "DAU Prediction",
             "MAU Prediction"
         ])
-    elif category == "Utilities":
-        module_selection = st.sidebar.radio("Tool", [
-            "SQL Generator"
-        ])
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**User:** {st.session_state.get('username', 'Admin')}")
 
     # Dispatcher
-    if module_selection == "ODPS Query (All)":
-        from app.modules import odps_query
-        odps_query.render(company_filter=None, title="ODPS Query - All")
-        
-    elif module_selection == "ODPS Query (WINGS)":
-        from app.modules import odps_query
-        odps_query.render(company_filter="WINGS", title="ODPS Query - WINGS")
-        
-    elif module_selection == "ODPS Query (JUMP)":
-        from app.modules import odps_query
-        odps_query.render(company_filter="JUMP", title="ODPS Query - JUMP")
-        
-    elif module_selection == "ODPS Query (OP)":
-        from app.modules import odps_query
-        odps_query.render(company_filter="OP", title="ODPS Query - OP")
+    if module_selection == "Game SQL Library":
+        from app.modules import universal_sql_query
+        universal_sql_query.run()
 
     elif module_selection == "SQL Execution Tool (Adv)":
         from app.modules import sql_tool
@@ -88,8 +67,6 @@ def main():
         data_upload.run()
         
     elif module_selection == "JSON Editor":
-        # We moved json_editor.py to app/modules/json_tool.py
-        # It likely has a run() function.
         from app.modules import json_tool
         if hasattr(json_tool, 'run'):
             json_tool.run()
@@ -99,11 +76,6 @@ def main():
     elif module_selection == "KPI Dashboard":
         from app.modules import kpi_dashboard
         kpi_dashboard.run()
-
-    elif module_selection == "Data Explorer":
-        from app.modules import data_explorer
-        if hasattr(data_explorer, 'run'):
-            data_explorer.run()
 
     elif module_selection == "LTV Prediction":
         from app.modules import ltv_predict
@@ -119,11 +91,6 @@ def main():
         from app.modules import mau_predict
         if hasattr(mau_predict, 'run'):
             mau_predict.run()
-
-    elif module_selection == "SQL Generator":
-        from app.modules import sql_generator
-        if hasattr(sql_generator, 'run'):
-            sql_generator.run()
 
 if __name__ == "__main__":
     main()

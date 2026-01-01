@@ -19,31 +19,33 @@ EXPORT_FORMATS = ['CSV', 'TXT', 'Excel']
 # Helper Functions
 # ==========================================
 
-def get_game_folders():
-    """
-    Scans the sql_templates directory for subfolders (each representing a game/project).
-    Returns a list of folder names.
-    Rules: Folder names should be lowercase snake_case (e.g., 'slamdunk_overseas', 'onepiece_domestic').
-    """
-    if not os.path.exists(SQL_TEMPLATES_BASE_DIR):
-        return []
-    
-    # Filter only directories
-    items = os.listdir(SQL_TEMPLATES_BASE_DIR)
-    folders = [d for d in items if os.path.isdir(os.path.join(SQL_TEMPLATES_BASE_DIR, d))]
-    return sorted(folders)
+from app.games_config import GAMES_CONFIG
 
-def load_templates_for_game(game_folder):
+# ==========================================
+# Helper Functions
+# ==========================================
+
+def get_game_options():
     """
-    Loads .sql files from a specific game folder.
-    Returns sorted templates.
+    Returns a list of game keys based on usage config.
     """
-    templates = []
-    game_dir = os.path.join(SQL_TEMPLATES_BASE_DIR, game_folder)
+    return list(GAMES_CONFIG.keys())
+
+def load_templates_for_game(game_key):
+    """
+    Loads .sql files from a specific game's configured folder.
+    """
+    config = GAMES_CONFIG.get(game_key)
+    if not config:
+        return []
+
+    folder_name = config.get('folder')
+    game_dir = os.path.join(SQL_TEMPLATES_BASE_DIR, folder_name)
     
     if not os.path.exists(game_dir):
         return []
 
+    templates = []
     files = [f for f in os.listdir(game_dir) if f.endswith('.sql')]
     
     for filename in files:
@@ -53,9 +55,7 @@ def load_templates_for_game(game_folder):
                 content = f.read()
             
             # Metadata Parsing (Header)
-            # Standard: -- Index. Title (key)
             first_line = content.split('\n')[0].strip()
-            # Default values
             display_name = filename.replace('.sql', '')
             key = display_name
             index = 999
@@ -63,11 +63,7 @@ def load_templates_for_game(game_folder):
             header_match = re.search(r'--\s+(.*?)\s+\(([^()]+)\)\s*$', first_line)
             
             if header_match:
-                # Update display name from header (e.g. "1. VIP Distribution")
                 display_name = header_match.group(1).strip()
-                # Do NOT overwrite key from header (which is just 'weeklyreport_vip')
-                # We want key to be the filename 'g33002013_weeklyreport_vip'
-                # key = header_match.group(2).strip() 
                 
                 idx_match = re.match(r'(\d+)\.', display_name)
                 if idx_match:
@@ -101,24 +97,24 @@ def extract_placeholders(sql):
 def run():
     st.title("Game SQL Library")
     
-    # 1. Select Game (Folder)
-    games = get_game_folders()
-    if not games:
-        st.warning(f"No game SQL folders found in {SQL_TEMPLATES_BASE_DIR}. Please create a folder like 'slamdunk_overseas' and add .sql files.")
+    # 1. Select Game (From Config)
+    game_keys = get_game_options()
+    if not game_keys:
+        st.warning(f"No games configured in games_config.py.")
         return
 
-    # Use session state to remember selection if needed, but simple selectbox is fine
-    selected_game = st.selectbox("Select Game Project", games, format_func=lambda x: x.replace('_', ' ').title())
+    selected_key = st.selectbox(
+        "Select Game Project", 
+        game_keys, 
+        format_func=lambda x: GAMES_CONFIG[x]['label']
+    )
     
-    # determine stats based on folder name (heuristic: naming convention 'name_location')
-    # fallback to 'overseas' if not specified
-    if 'domestic' in selected_game:
-        location = 'domestic'
-    else:
-        location = 'overseas' 
+    # Get Config for selected game
+    game_config = GAMES_CONFIG[selected_key]
+    location = game_config['environment'] # 'domestic' or 'overseas' 
 
     # 2. Load Templates
-    templates = load_templates_for_game(selected_game)
+    templates = load_templates_for_game(selected_key)
     if not templates:
         st.info("No SQL templates found in this folder.")
         return
@@ -135,12 +131,21 @@ def run():
         
         # 3. Parameters
         params = {}
+        
+        # Auto-inject Game ID from config
+        if 'game_id' in game_config:
+            params['game_id'] = game_config['game_id']
+
         placeholders = extract_placeholders(template['sql'])
-        if placeholders:
+        
+        # Filter out auto-injected keys (like game_id) from the user input form
+        user_placeholders = {p for p in placeholders if p not in params}
+
+        if user_placeholders:
             st.markdown("---")
             st.write("#### Configure Parameters")
-            cols = st.columns(min(len(placeholders), 4))
-            for i, p in enumerate(sorted(placeholders)):
+            cols = st.columns(min(len(user_placeholders), 4))
+            for i, p in enumerate(sorted(user_placeholders)):
                 with cols[i % 4]:
                     val = st.date_input(f"{p}", key=f"d_{p}")
                     params[p] = val.strftime("%Y%m%d")

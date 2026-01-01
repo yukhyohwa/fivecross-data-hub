@@ -14,31 +14,24 @@ def power_function(num_day, a, b):
 # Streamlit应用
 def run():
   
-    # 替换为你的GitHub个人访问令牌、仓库名、文件路径
-    token = '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'
-    repo = 'Jialei-Yang/streamlit_app'  # 格式为 '用户名/仓库名'
-    file_path = 'database/ltv预测文件.csv'  # 例如 'data/folder/data.csv'
+    # 读取本地示例文件
+    import os
+    current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    file_path = os.path.join(current_dir, 'database', 'ltv预测文件.csv')
     
-    # 构建GitHub API URL
-    url = f'https://api.github.com/repos/{repo}/contents/{file_path}'
-    
-    # 设置请求头部，包括认证令牌
-    headers = {'Authorization': f'token {token}'}
-    
-    # 发送GET请求获取文件内容
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()  # 确保请求成功
-    
-    # 解码文件内容
-    file_content = base64.b64decode(response.json()['content'])
-    
-    # 在Streamlit应用中创建下载按钮
-    st.download_button(
-        label="点击下载以获得上传文件模版",
-        data=file_content,
-        file_name="ltv预测文件.csv",
-        mime="text/csv",
-    )
+    try:
+        with open(file_path, 'rb') as f:
+            file_content = f.read()
+            
+        # 在Streamlit应用中创建下载按钮
+        st.download_button(
+            label="点击下载以获得上传文件模版",
+            data=file_content,
+            file_name="ltv_predict_sample.csv",
+            mime="text/csv",
+        )
+    except FileNotFoundError:
+        st.warning("Sample file not found in database/ directory.")
     
     # 文件上传
     uploaded_file = st.file_uploader("上传CSV文件", type="csv")

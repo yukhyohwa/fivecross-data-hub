@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-.env
-output/
-credentials.toml
-config.toml
-venv/
-.streamlit/secrets.toml
