@@ -17,15 +17,19 @@ GAMES_CONFIG = {
         "label": "Slam Dunk (Overseas)",
         "folder": "slamdunk_overseas",
         "environment": "overseas",
-        "game_id": "g33002013",
-        "odps_project": "slamdunk_os_project" 
+        "game_id": "g33002013"
+    },
+    "jump_overseas": {
+        "label": "JUMP (Overseas)",
+        "folder": "jump_overseas",
+        "environment": "overseas",
+        "game_id": "g65002007"
     },
     "onepiece_domestic": {
         "label": "One Piece (China)",
         "folder": "onepiece_domestic",
         "environment": "domestic",
-        "game_id": "hzw_cn",
-        "odps_project": "op_cn_project"
+        "game_id": "hzw_cn"
     }
 }
 

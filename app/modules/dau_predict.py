@@ -8,14 +8,14 @@ import openpyxl
 
 # Streamlit应用
 def run():
-    # 设置页面标题
-    st.title("基于分日留存率的DAU和收入预测")
+    # Set page title
+    st.title("DAU and Revenue Prediction (Daily Retention)")
     
-    st.subheader('1.预测日期范围', divider='rainbow')
+    st.subheader('1. Forecast Date Range', divider='rainbow')
 
-    # 步骤1：用户输入
-    start_date = st.date_input("开始日期", datetime.today())
-    end_date = st.date_input("结束日期", datetime.today())
+    # Step 1: User Input
+    start_date = st.date_input("Start Date", datetime.today())
+    end_date = st.date_input("End Date", datetime.today())
 
     if start_date < end_date:
         # 步骤2：生成并下载数据模板
@@ -35,18 +35,18 @@ def run():
             df_template.to_excel(writer, index=False)
         output.seek(0)
 
-        # 提供下载按钮
-        st.download_button(label="下载数据模板", data=output, file_name="dau_template.xlsx", mime="application/vnd.ms-excel")
+        # Provide download button
+        st.download_button(label="Download Data Template", data=output, file_name="dau_template.xlsx", mime="application/vnd.ms-excel")
 
-        # 步骤3：上传填写好的xlsx文件
-        uploaded_file = st.file_uploader("上传填写好的Excel文件", type=["xlsx"])
+        # Step 3: Upload filled xlsx
+        uploaded_file = st.file_uploader("Upload Filled Excel File", type=["xlsx"])
         if uploaded_file is not None:
             # 读取Excel文件
             df_uploaded = pd.read_excel(uploaded_file)
             df_uploaded['注册日期'] = pd.to_datetime(df_uploaded['注册日期']).dt.strftime('%Y-%m-%d')
 
-            # 展示上传的表格
-            st.write("上传的表格内容：", df_uploaded)
+            # Show uploaded table
+            st.write("Uploaded Table Content:", df_uploaded)
 
             # 步骤4：优化计算DAU及其构成的逻辑，空值处理并确保RRn列正确排序
             dau_components = pd.DataFrame(index=dates)
@@ -107,20 +107,20 @@ def run():
             rr_columns = [col for col in needed_rr_columns if col != 'RR0']
             dau_components[rr_columns] = dau_components[rr_columns].apply(lambda x: x.round().astype(pd.Int64Dtype()), axis=0)
 
-            st.subheader('2.预测结果(每日)', divider='rainbow')
+            st.subheader('2. Daily Forecast Results', divider='rainbow')
             
-            # 展示DAU及其构成
-            st.write("DAU及其构成：", dau_components)
+            # Show DAU and components
+            st.write("DAU and Components:", dau_components)
 
-            # 显示DAU和NUU的图表
-            fig_dau_nuu = px.line(dau_components, x='日期', y=['DAU', 'NUU'], title='DAU & NUU 随时间的变化', markers=True)
+            # Show DAU & NUU Chart
+            fig_dau_nuu = px.line(dau_components, x='日期', y=['DAU', 'NUU'], title='DAU & NUU Trends', markers=True)
             st.plotly_chart(fig_dau_nuu, use_container_width=True)
 
-            # 显示收入的图表
-            fig_revenue = px.line(dau_components, x='日期', y='收入', title='每日收入 随时间的变化', markers=True)
+            # Show Revenue Chart
+            fig_revenue = px.line(dau_components, x='日期', y='收入', title='Daily Revenue Trends', markers=True)
             st.plotly_chart(fig_revenue, use_container_width=True)
 
-            st.subheader('3.预测结果(每月)', divider='rainbow')
+            st.subheader('3. Monthly Forecast Results', divider='rainbow')
             
             # 生成按自然月分割的表格
             dau_components['日期'] = pd.to_datetime(dau_components['日期'])
@@ -133,7 +133,7 @@ def run():
             }).round().astype(pd.Int64Dtype()).reset_index()
             
             monthly_stats['日期'] = monthly_stats['日期'].dt.to_period('M').astype(str)
-            monthly_stats.columns = ['日期', '日均DAU', '总NUU', '日均ARPU', '总收入']
+            monthly_stats.columns = ['Date', 'Avg DAU', 'Total NUU', 'Avg ARPU', 'Total Revenue']
 
             # 生成按每30天分割的表格
             def resample_30d(df):
@@ -156,19 +156,19 @@ def run():
             period_30d_stats = resample_30d(dau_components)
             period_30d_stats.reset_index(drop=True, inplace=True)
             period_30d_stats = period_30d_stats[['日期', 'DAU', 'NUU', 'ARPU', '收入']]
-            period_30d_stats.columns = ['日期', '日均DAU', '总NUU', '日均ARPU', '总收入']
+            period_30d_stats.columns = ['Date', 'Avg DAU', 'Total NUU', 'Avg ARPU', 'Total Revenue']
 
-            # 展示两个表格
+            # Show two tables
             col1, col2 = st.columns(2)
             with col1:
-                st.write("按自然月分割的统计数据：")
+                st.write("Stats by Calendar Month:")
                 st.dataframe(monthly_stats)
             with col2:
-                st.write("按每30天分割的统计数据：")
+                st.write("Stats by 30-Day Period:")
                 st.dataframe(period_30d_stats)
 
     else:
-        st.error("结束日期必须大于开始日期")
+        st.error("End date must be after start date")
 
 # 运行应用
 if __name__ == "__main__":

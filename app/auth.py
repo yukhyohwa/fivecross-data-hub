@@ -27,7 +27,7 @@ def login_component():
         st.session_state['user_permissions'] = []
 
     if not st.session_state['logged_in']:
-        st.title("Admin Login")
+        st.title("System Login")
         with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
@@ -39,9 +39,9 @@ def login_component():
                 if success:
                     st.session_state['logged_in'] = True
                     st.session_state['user_permissions'] = permissions
-                    st.success("Logged in successfully!")
+                    st.success("Login Successful!")
                     st.rerun()
                 else:
-                    st.error("Invalid username or password.")
+                    st.error("Invalid Username or Password.")
         return False
     return True

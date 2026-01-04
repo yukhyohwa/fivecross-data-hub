@@ -20,35 +20,51 @@ def main():
     # Sidebar Navigation
     st.sidebar.title("Navigation")
     
-    category = st.sidebar.selectbox("Category", [
-        "Query Tools",
-        "Data Management",
-        "Analytics & Dashboard",
-        "Predictions"
-    ])
+    # Mapper for category display to internal value
+    category_map = {
+        "Query Tools": "Query Tools",
+        "Data Management": "Data Management",
+        "Analytics & Dashboard": "Analytics & Dashboard",
+        "Predictions": "Predictions"
+    }
+    
+    category_display = st.sidebar.selectbox("Category", list(category_map.keys()))
+    category = category_map[category_display]
     
     module_selection = None
     
+    # Mapper for tool display to internal value
     if category == "Query Tools":
-        module_selection = st.sidebar.radio("Tool", [
-            "Game SQL Library",
-            "SQL Execution Tool (Adv)"
-        ])
+        tool_map = {
+            "Game SQL Library": "Game SQL Library",
+            "SQL Execution Tool (Adv)": "SQL Execution Tool (Adv)"
+        }
+        tool_display = st.sidebar.radio("Tool", list(tool_map.keys()))
+        module_selection = tool_map[tool_display]
+        
     elif category == "Data Management":
-        module_selection = st.sidebar.radio("Tool", [
-            "Data Upload",
-            "JSON Editor"
-        ])
+        tool_map = {
+            "Data Upload": "Data Upload",
+            "JSON Utils": "JSON Editor"
+        }
+        tool_display = st.sidebar.radio("Tool", list(tool_map.keys()))
+        module_selection = tool_map[tool_display]
+
     elif category == "Analytics & Dashboard":
-        module_selection = st.sidebar.radio("Tool", [
-            "KPI Dashboard"
-        ])
+        tool_map = {
+            "KPI Dashboard": "KPI Dashboard"
+        }
+        tool_display = st.sidebar.radio("Tool", list(tool_map.keys()))
+        module_selection = tool_map[tool_display]
+
     elif category == "Predictions":
-        module_selection = st.sidebar.radio("Tool", [
-            "LTV Prediction",
-            "DAU Prediction",
-            "MAU Prediction"
-        ])
+        tool_map = {
+            "LTV Prediction": "LTV Prediction",
+            "DAU Prediction": "DAU Prediction",
+            "MAU Prediction": "MAU Prediction"
+        }
+        tool_display = st.sidebar.radio("Tool", list(tool_map.keys()))
+        module_selection = tool_map[tool_display]
 
     st.sidebar.markdown("---")
     st.sidebar.markdown(f"**User:** {st.session_state.get('username', 'Admin')}")
@@ -71,7 +87,7 @@ def main():
         if hasattr(json_tool, 'run'):
             json_tool.run()
         else:
-            st.error("Module has no run() entry point.")
+            st.error("该模块没有 run() 入口点。")
 
     elif module_selection == "KPI Dashboard":
         from app.modules import kpi_dashboard

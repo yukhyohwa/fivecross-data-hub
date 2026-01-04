@@ -25,7 +25,7 @@ def run():
             
         # 在Streamlit应用中创建下载按钮
         st.download_button(
-            label="点击下载以获得上传文件模版",
+            label="Download Upload Template",
             data=file_content,
             file_name="ltv_predict_sample.csv",
             mime="text/csv",
@@ -34,18 +34,18 @@ def run():
         st.warning("Sample file not found in database/ directory.")
     
     # 文件上传
-    uploaded_file = st.file_uploader("上传CSV文件", type="csv")
+    uploaded_file = st.file_uploader("Upload CSV File", type="csv")
 
     if uploaded_file is not None:
         # 读取上传的文件
         data = pd.read_csv(uploaded_file)
 
         # 用户输入ecpnu和net_rate
-        ecpnu = st.number_input("输入ECPNU值：", min_value=0.0, value=50.0, step=1.0)
-        net_rate = st.number_input("输入Net Rate值：", min_value=0.0, value=0.35, step=0.01)
+        ecpnu = st.number_input("Enter ECPNU:", min_value=0.0, value=50.0, step=1.0)
+        net_rate = st.number_input("Enter Net Rate:", min_value=0.0, value=0.35, step=0.01)
 
-        if st.button("计算"):
-            with st.spinner('正在计算中...'):
+        if st.button("Calculate"):
+            with st.spinner('Calculating...'):
                 # 处理数据
                 # 留存率预测部分
                 retention_data_for_prediction = data.dropna(subset=['actual_rr'])
@@ -115,10 +115,10 @@ def run():
                 col_left, col_right = st.columns(2)
             
                 with col_left:
-                    st.write("完整预测如下:", predictions_df)
+                    st.write("Full Forecast:", predictions_df)
             
                 with col_right:
-                    st.write("标杆如下:", selected_df)
+                    st.write("Benchmarks:", selected_df)
 
 
                 # 创建三列，每列放一个图表
@@ -130,7 +130,7 @@ def run():
                         predictions_df, 
                         x="Day Number", 
                         y=["Actual Retention Rate", "Predicted Retention Rate"],
-                        title="分日实际留存率与预测留存率"
+                        title="Actual vs Predicted Daily Retention"
                     )
                     st.plotly_chart(fig1, use_container_width=True)
             
@@ -140,7 +140,7 @@ def run():
                         predictions_df, 
                         x="Day Number", 
                         y=["Actual ARPU", "Predicted ARPU"],
-                        title="分日实际ARPU与预测ARPU"
+                        title="Actual vs Predicted Daily ARPU"
                     )
                     st.plotly_chart(fig2, use_container_width=True)
             
@@ -150,7 +150,7 @@ def run():
                         predictions_df, 
                         x="Day Number", 
                         y=["Predicted LTV", "Required LTV"],
-                        title="分日预测LTV(正向标杆)与需求LTV(反向标杆)"
+                        title="Predicted LTV vs Required LTV"
                     )
                     st.plotly_chart(fig3, use_container_width=True)
 

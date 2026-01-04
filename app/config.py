@@ -15,19 +15,11 @@ def get_odps_credentials(location):
             'project': os.getenv('ODPS_DOMESTIC_PROJECT'),
             'endpoint': os.getenv('ODPS_DOMESTIC_ENDPOINT')
         }
-    elif location == 'overseas' or location == '海外':
-        # Defaulting to the 'easy_query' version
+    elif location in ['overseas', '海外', 'overseas_v2']:
         return {
             'access_id': os.getenv('ODPS_OVERSEAS_ACCESS_ID'),
             'access_key': os.getenv('ODPS_OVERSEAS_ACCESS_KEY'),
             'project': os.getenv('ODPS_OVERSEAS_PROJECT'),
-            'endpoint': os.getenv('ODPS_OVERSEAS_ENDPOINT')
-        }
-    elif location == 'overseas_v2':
-        return {
-            'access_id': os.getenv('ODPS_OVERSEAS_V2_ACCESS_ID'),
-            'access_key': os.getenv('ODPS_OVERSEAS_V2_ACCESS_KEY'),
-            'project': os.getenv('ODPS_OVERSEAS_V2_PROJECT'),
             'endpoint': os.getenv('ODPS_OVERSEAS_ENDPOINT')
         }
     return None

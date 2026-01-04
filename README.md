@@ -45,8 +45,7 @@ Open `app/games_config.py` and register your game:
         "label": "My New Game",
         "folder": "my_new_game_folder", # Matches folder in sql_templates
         "environment": "overseas",       # 'domestic' or 'overseas'
-        "game_id": "g12345678",          # Automatically injected into SQL
-        "odps_project": "project_name"
+        "game_id": "g12345678"           # Automatically injected into SQL (Optional)
     }
 ```
 
@@ -56,20 +55,22 @@ Create a folder in `app/sql_templates/` matching the `folder` name above (e.g., 
 ### 3. Add SQL Templates
 Add `.sql` files to that folder.
 *   **Filename**: Describes functionality (e.g., `daily_report.sql`).
-*   **Header**: First line must be `-- Index. Title`.
+*   **Header**: First line should optionally be `-- [Index]. [Title] ([Filename])` for sorting and display.
+*   **Description**: Second line can be `-- Description: ...`.
 *   **Placeholders**:
     *   `{game_id}`: Automatically filled from config.
-    *   `{any_other_var}`: Will generate a user input box in the UI.
+    *   `{day}/{date}`: Generates a Date Picker (formats to `YYYYMMDD`).
+    *   `{other_var}`: Generates a Text Input.
 
 **Example SQL (`app/sql_templates/my_new_game_folder/active_users.sql`):**
 ```sql
--- 1. Active Users Report
+-- 1. Active Users Report (active_users)
 -- Description: Query daily active users
 
 SELECT day, COUNT(DISTINCT role_id)
 FROM ods_log_login
 WHERE game_id = '{game_id}'  -- Auto-filled
-  AND day = '{target_day}'   -- Ask user for input
+  AND day = '{day}'          -- Generates Date Picker -> '20250101'
 GROUP BY day;
 ```
 
@@ -79,7 +80,26 @@ GROUP BY day;
     ```bash
     pip install -r requirements.txt
     ```
-2.  **Run Application**:
+    ```
+2.  **Setup Credentials**:
+    Create a `.env` file in the root directory (copy from `.env.example` if available) and configure your ODPS credentials:
+    ```ini
+    # Domestic Environment
+    ODPS_DOMESTIC_ACCESS_ID=...
+    ODPS_DOMESTIC_ACCESS_KEY=...
+    ODPS_DOMESTIC_PROJECT=...
+    ODPS_DOMESTIC_ENDPOINT=...
+
+    # Overseas Environment
+    ODPS_OVERSEAS_ACCESS_ID=...
+    ODPS_OVERSEAS_ACCESS_KEY=...
+    ODPS_OVERSEAS_PROJECT=...  # Default project
+    ODPS_OVERSEAS_ENDPOINT=...
+    
+    # User Credentials (for Login)
+    # See credentials.toml
+    ```
+3.  **Run Application**:
     ```bash
     streamlit run main.py
     ```

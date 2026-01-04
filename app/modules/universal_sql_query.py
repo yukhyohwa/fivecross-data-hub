@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 import pandas as pd
+import io
 from app.modules.odps_query import create_odps_instance
 import os
 from datetime import datetime
@@ -104,7 +105,7 @@ def run():
         return
 
     selected_key = st.selectbox(
-        "Select Game Project", 
+        "Select Game", 
         game_keys, 
         format_func=lambda x: GAMES_CONFIG[x]['label']
     )
@@ -112,6 +113,7 @@ def run():
     # Get Config for selected game
     game_config = GAMES_CONFIG[selected_key]
     location = game_config['environment'] # 'domestic' or 'overseas' 
+    location_cn = "海外" if (location == 'overseas' or location == 'overseas_v2') else "国内"
 
     # 2. Load Templates
     templates = load_templates_for_game(selected_key)
@@ -147,64 +149,104 @@ def run():
             cols = st.columns(min(len(user_placeholders), 4))
             for i, p in enumerate(sorted(user_placeholders)):
                 with cols[i % 4]:
-                    val = st.date_input(f"{p}", key=f"d_{p}")
-                    params[p] = val.strftime("%Y%m%d")
+                    # Robust Logic: Only treat params with 'day' or 'date' as Date inputs.
+                    # Default all others (id, name, amount, etc.) to Text inputs.
+                    name_lower = p.lower()
+                    if 'day' in name_lower or 'date' in name_lower:
+                        val = st.date_input(f"{p}", key=f"d_{p}")
+                        params[p] = val.strftime("%Y%m%d") # Format to 8-digit Integer-String (e.g., 20250101)
+                    else:
+                        # Use text input for IDs, names, counters, etc.
+                        val = st.text_input(f"{p}", key=f"t_{p}")
+                        params[p] = val
 
         st.markdown("---")
         
         # 4. Output Format Selection
-        col1, col2 = st.columns([1, 3])
-        with col1:
-             export_format = st.radio("Export Format", EXPORT_FORMATS)
-        
-        # 5. Execution
-        with col2:
-            st.write("") # Spacer
-            st.write("")
-            if st.button("Run & Export", type="primary"):
-                try:
-                    final_sql = template['sql'].format(**params)
-                    
-                    o = create_odps_instance(location)
-                    if not o:
-                        st.stop()
-                        
-                    with st.spinner(f"Running query on {location.upper()} environment..."):
-                        with o.execute_sql(final_sql).open_reader() as reader:
-                            data = [record.values for record in reader]
-                            columns = [col.name for col in reader._schema.columns]
-                            df = pd.DataFrame(data, columns=columns)
-                            
-                            st.success(f"Success! {len(df)} rows.")
-                            st.dataframe(df, use_container_width=True)
-                            
-                            # Handle Exports
-                            file_base = f"{selected_game}_{template['key']}_{datetime.now().strftime('%Y%m%d')}"
-                            
-                            if export_format == 'CSV':
-                                data_bytes = df.to_csv(index=False).encode('utf-8')
-                                mime = "text/csv"
-                                ext = "csv"
-                            elif export_format == 'TXT':
-                                data_bytes = df.to_csv(index=False, sep='\t').encode('utf-8')
-                                mime = "text/plain"
-                                ext = "txt"
-                            elif export_format == 'Excel':
-                                # Requires openpyxl
-                                import io
-                                buffer = io.BytesIO()
-                                with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-                                    df.to_excel(writer, index=False)
-                                data_bytes = buffer.getvalue()
-                                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                ext = "xlsx"
-                                
-                            st.download_button(
-                                label=f"Download .{ext}",
-                                data=data_bytes,
-                                file_name=f"{file_base}.{ext}",
-                                mime=mime
-                            )
+# 4. Execution Area
+    if st.button("Run Query", type="primary"):
+        try:
+            final_sql = template['sql'].format(**params)
+            
+            # Debug: Show the actual SQL being run (to verify date formats)
+            with st.expander("Debug: Final Executed SQL (Check Date Format)", expanded=False):
+                st.code(final_sql, language='sql')
 
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            # Extract project override if configured
+            project_override = game_config.get('odps_project')
+            
+            o = create_odps_instance(location, project_override)
+            if not o:
+                st.stop()
+                
+            with st.spinner(f"Running query on {location}..."):
+                with o.execute_sql(final_sql).open_reader() as reader:
+                    data = [record.values for record in reader]
+                    columns = [col.name for col in reader._schema.columns]
+                    df = pd.DataFrame(data, columns=columns)
+                    
+                    # Store result in session state
+                    st.session_state['uni_query_result'] = df
+                    st.session_state['uni_query_game'] = selected_key
+                    st.session_state['uni_query_template'] = template['key']
+                    st.session_state['uni_query_time'] = datetime.now()
+                    
+                    st.rerun() # Rerun to refresh the state and show results
+
+        except Exception as e:
+            st.error(f"Error: {e}")
+
+    # 5. Result Display & Export
+    if 'uni_query_result' in st.session_state:
+        cached_df = st.session_state['uni_query_result']
+        cached_game = st.session_state.get('uni_query_game', selected_key)
+        cached_temp = st.session_state.get('uni_query_template', template['key'])
+        cached_time = st.session_state.get('uni_query_time', datetime.now())
+
+        # Display Result
+        st.markdown("---")
+        st.success(f"Query Successful! {len(cached_df)} rows. (Time: {cached_time.strftime('%H:%M:%S')})")
+        st.dataframe(cached_df, use_container_width=True)
+        
+        # Export Section
+        st.subheader("Export Config")
+        
+        ec1, ec2 = st.columns([1, 4])
+        
+        with ec1:
+            export_format = st.radio("Export Format", EXPORT_FORMATS, key="res_export_fmt")
+            
+        with ec2:
+            st.write("")
+            st.write("")
+            
+            # Prepare file name based on the CACHED info
+            file_base = f"{cached_game}_{cached_temp}_{cached_time.strftime('%Y%m%d_%H%M%S')}"
+            
+            data_bytes = None
+            mime = "text/plain"
+            ext = "txt"
+            
+            if export_format == 'CSV':
+                data_bytes = cached_df.to_csv(index=False).encode('utf-8')
+                mime = "text/csv"
+                ext = "csv"
+            elif export_format == 'TXT':
+                data_bytes = cached_df.to_csv(index=False, sep='\t').encode('utf-8')
+                mime = "text/plain"
+                ext = "txt"
+            elif export_format == 'Excel':
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    cached_df.to_excel(writer, index=False)
+                data_bytes = buffer.getvalue()
+                mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ext = "xlsx"
+            
+            st.download_button(
+                label=f"📥 Download .{ext}",
+                data=data_bytes,
+                file_name=f"{file_base}.{ext}",
+                mime=mime,
+                type="secondary"
+            )

@@ -4,16 +4,11 @@ import pandas as pd
 from io import BytesIO
 import plotly.express as px
 import os
-from useful_udf import load_config, execute_sql
-
-# 读取 TOML 配置文件
-current_dir = os.path.dirname(os.path.abspath(__file__))
-config_path = os.path.join(current_dir, 'config.toml')
-config = load_config(config_path)
+from app.modules.udf_utils import execute_sql
 
 @st.cache_data
-def execute_sql_query(engine, region, sql, config):
-    df = execute_sql(engine, region, sql, config)
+def execute_sql_query(engine, region, sql):
+    df = execute_sql(engine, region, sql)
     return df
 
 def cache_dataframe(df):
@@ -65,9 +60,9 @@ def round_numeric_columns(df):
 
 def create_interactive_plot(df):
     fig = px.line(df, x='月份', y=['MAU', 'NUU', 'OUU', 'RUU'], 
-                  labels={'value': '用户数', 'variable': '类型'},
-                  title="月度活跃用户量变化")
-    fig.update_layout(xaxis_title='月份', yaxis_title='用户数量',
+                  labels={'value': 'User Count', 'variable': 'Type'},
+                  title="Monthly Active Users Trend")
+    fig.update_layout(xaxis_title='Month', yaxis_title='User Count',
                       yaxis=dict(range=[0, None]))
     fig.update_xaxes(tickangle=-45)
     return fig
@@ -80,8 +75,8 @@ def calculate_metrics(df):
     return avg_mau, avg_nuu_retention, avg_ouu_retention, avg_ruu_retention
 
 def run():
-    st.title('基于分类用户次月留存率的MAU预测工具')
-    st.subheader('1.获取历史参考值', divider='rainbow')
+    st.title('MAU Prediction Tool (Next-Month Retention)')
+    st.subheader('1. Get Historical Reference Values', divider='rainbow')
     
     from app.games_config import GAMES_CONFIG
     
@@ -103,13 +98,13 @@ def run():
             environment = game_conf.get('environment', 'domestic')
 
         with col2:
-            start_month = st.text_input("历史开始月份", "202401")
+            start_month = st.text_input("Start Month", "202401")
         with col3:
-            end_month = st.text_input("历史结束月份", "202404")
+            end_month = st.text_input("End Month", "202404")
         with col4:
-            predict_end_month = st.text_input("预测截止月份", "202410")
+            predict_end_month = st.text_input("Forecast End Month", "202410")
         
-        submit_button = st.form_submit_button(label='查询数据')
+        submit_button = st.form_submit_button(label='Query Data')
     
     df = pd.DataFrame()
     
@@ -123,7 +118,7 @@ def run():
             raw_sql = f.read()
 
         sql = raw_sql.format(app_id=app_id, start_month=start_month, end_month=end_month)
-        df = execute_sql_query('odps', environment, sql, config)
+        df = execute_sql_query('odps', environment, sql)
         df = df.rename(columns={
             'data_date': '月份',
             'nuu': 'NUU',
@@ -144,17 +139,17 @@ def run():
         
         excel_data = to_excel(df)
         st.download_button(
-            label="下载数据模版",
+            label="Download Data Template",
             data=excel_data,
-            file_name="MAU数据.xlsx",
+            file_name="MAU_Data.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     
-        st.markdown("<span style='color: red;'>请在下载后, 填写需要预测月份的 NUU, RUU, NUU/OUU/RUU的次月留存率, 然后再点击下方的上传按钮进行上传, 即可预测. </span>", unsafe_allow_html=True)
+        st.markdown("<span style='color: red;'>After downloading, please fill in NUU, RUU, and Next-Month Retention Rates for NUU/OUU/RUU, then upload below to predict. </span>", unsafe_allow_html=True)
     
-    st.subheader('2.进行预测', divider='rainbow')
+    st.subheader('2. Perform Prediction', divider='rainbow')
         
-    uploaded_file = st.file_uploader("上传Excel文件", type=['xlsx'])
+    uploaded_file = st.file_uploader("Upload Excel File", type=['xlsx'])
     
     if uploaded_file is not None:
         df = pd.read_excel(uploaded_file)
@@ -163,16 +158,16 @@ def run():
             st.error(error_message)
         else:
             df = round_numeric_columns(df)
-            st.markdown("<span style='color: red;'>已上传的数据(可以直接在表格中修改值)： </span>", unsafe_allow_html=True)
+            st.markdown("<span style='color: red;'>Uploaded Data (Editable): </span>", unsafe_allow_html=True)
             st.session_state.df = st.data_editor(df)
             
-    if 'df' in st.session_state and st.session_state.df is not None and st.button('进行预测'):
+    if 'df' in st.session_state and st.session_state.df is not None and st.button('Run Prediction'):
         st.session_state.df = calculate_ouu(st.session_state.df)
     
         col_df, col_metrics, col_plot = st.columns([2, 1, 2])
     
         with col_df:
-            st.write("预测后的数据：", st.session_state.df)
+            st.write("Predicted Data:", st.session_state.df)
     
         with col_plot:
             plot = create_interactive_plot(st.session_state.df)
@@ -187,10 +182,10 @@ def run():
         delta_ruu_retention = (last_month_data['RUU次月留存率'] - first_month_data['RUU次月留存率']) / first_month_data['RUU次月留存率'] * 100
         
         with col_metrics:
-            st.metric(label="最后一个月 MAU", value=f"{last_month_data['MAU']:.0f}", delta=f"{delta_mau:.0f}%")
-            st.metric(label="最后一个月 NUU 次月留存率", value=f"{last_month_data['NUU次月留存率']:.1%}", delta=f"{delta_nuu_retention:.0f}%")
-            st.metric(label="最后一个月 OUU 次月留存率", value=f"{last_month_data['OUU次月留存率']:.1%}", delta=f"{delta_ouu_retention:.0f}%")
-            st.metric(label="最后一个月 RUU 次月留存率", value=f"{last_month_data['RUU次月留存率']:.1%}", delta=f"{delta_ruu_retention:.0f}%")
+            st.metric(label="Last Month MAU", value=f"{last_month_data['MAU']:.0f}", delta=f"{delta_mau:.0f}%")
+            st.metric(label="Last Month NUU Retention", value=f"{last_month_data['NUU次月留存率']:.1%}", delta=f"{delta_nuu_retention:.0f}%")
+            st.metric(label="Last Month OUU Retention", value=f"{last_month_data['OUU次月留存率']:.1%}", delta=f"{delta_ouu_retention:.0f}%")
+            st.metric(label="Last Month RUU Retention", value=f"{last_month_data['RUU次月留存率']:.1%}", delta=f"{delta_ruu_retention:.0f}%")
 
 if __name__ == "__main__":
     run()
