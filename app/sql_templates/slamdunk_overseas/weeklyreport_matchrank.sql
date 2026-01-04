@@ -1,5 +1,4 @@
--- 9. Match Participation by Rank (weeklyreport_matchrank)
--- Description: Match stats broken down by player's rank.
+-- Match Participation by Rank (weeklyreport_matchrank)
 -- Description: Match stats broken down by player's rank.
 SELECT a.day, c.name AS type, rank_name, 
        COUNT(DISTINCT a.mbga_uid, a.user_id) AS uu, 

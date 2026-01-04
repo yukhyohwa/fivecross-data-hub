@@ -1,5 +1,4 @@
--- 11. Player (Card) Usage in Matches (weeklyreport_cards)
--- Description: Stats like WinRate, Score, Rebounds, Steals per player card in Ranked 3v3.
+-- Player (Card) Usage in Matches (weeklyreport_cards)
 -- Description: Stats like WinRate, Score, Rebounds, Steals per player card in Ranked 3v3.
 SELECT CASE WHEN pvp = 1 THEN '单机' WHEN pvp = 2 THEN 'PVP' END AS pvp_type,
        rank_name, d.name AS type, total_match, card_name AS player, match_times,

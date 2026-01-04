@@ -1,5 +1,4 @@
--- 7. Match Participation (weeklyreport_matchtype)
--- Description: Match stats (Times, Win, PvP vs AI) by match type.
+-- Match Participation (weeklyreport_matchtype)
 -- Description: Match stats (Times, Win, PvP vs AI) by match type.
 SELECT all_uu, b.type, match_times, uu, times, win, pvp_uu, pvp_times, pvp_win, ping, a.day
 FROM (

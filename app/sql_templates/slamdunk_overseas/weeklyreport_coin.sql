@@ -1,5 +1,4 @@
--- 4. Resource Production/Consumption (weeklyreport_coin)
--- Description: Production and Consumption of resources separated by VIP and Zone.
+-- Resource Production/Consumption (weeklyreport_coin)
 -- Description: Production and Consumption of resources separated by VIP and Zone (10001-39001).
 SELECT a.day, vip, a_typ, type, coin_typ, COUNT(DISTINCT a.mbga_uid, a.user_id) AS uu, SUM(amount) AS amount
 FROM (
