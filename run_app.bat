@@ -14,5 +14,9 @@ python -m streamlit run main.py
 if %errorlevel% neq 0 (
     echo.
     echo [ERROR] Application failed to start.
+    echo.
+    echo It is possible that some dependencies are missing.
+    echo Please try running 'update_env.bat' to install them.
+    echo.
     pause
 )
