@@ -6,3 +6,11 @@ credentials.toml
 config.toml
 venv/
 .streamlit/secrets.toml
+
+# SQL Templates Privacy Control
+# Ignore all game specific SQL folders by default
+app/sql_templates/*
+
+# Whitelist allowed folders
+!app/sql_templates/system/
+!app/sql_templates/onepiece_domestic/
