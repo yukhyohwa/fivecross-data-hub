@@ -28,6 +28,7 @@
 │   │   ├── onepiece_domestic/       # Project-specific templates
 │   ├── games_config.py          # Central Registry for Game IDs & Envs
 │   ├── config.py                # Credential management
+├── data/                        # Static data files (CSV, Excel)
 ├── main.py                      # Application Entry Point
 ├── split_sql.py                 # Utility to migrate legacy SQL files
 ├── requirements.txt             # Python dependencies
