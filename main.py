@@ -2,6 +2,7 @@ import streamlit as st
 import importlib
 import sys
 import os
+from streamlit.web import cli as stcli
 
 # Add current directory to path so modules can be imported if needed,
 # though we structure as a package 'app'.
@@ -109,4 +110,7 @@ def main():
             mau_predict.run()
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "web":
+        sys.argv = ["streamlit", "run", sys.argv[0]]
+        sys.exit(stcli.main())
     main()

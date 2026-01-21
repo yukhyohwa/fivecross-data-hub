@@ -101,6 +101,15 @@ GROUP BY day;
     # See credentials.toml
     ```
 3.  **Run Application**:
+    You can start the web interface using the following command:
+    ```bash
+    python main.py web
+    ```
+    Alternatively, use the provided batch script:
+    ```bash
+    run_app.bat
+    ```
+    Or the standard streamlit command:
     ```bash
     streamlit run main.py
     ```
