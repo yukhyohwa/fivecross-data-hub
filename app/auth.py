@@ -2,7 +2,7 @@ import toml
 import streamlit as st
 import os
 
-CREDENTIALS_FILE = 'credentials.toml'
+CREDENTIALS_FILE = 'config/credentials.toml'
 
 def load_credentials():
     """Load user credentials from TOML file."""
