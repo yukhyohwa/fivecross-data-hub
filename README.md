@@ -27,7 +27,7 @@
 │   │   ├── slamdunk_overseas/       # Project-specific templates
 │   │   ├── onepiece_domestic/       # Project-specific templates
 │   ├── games_config.py          # Central Registry for Game IDs & Envs
-│   ├── config.py                # Credential management
+├── config/                      # Configuration files (TOML, etc.)
 ├── data/                        # Static data files (CSV, Excel)
 ├── main.py                      # Application Entry Point
 ├── split_sql.py                 # Utility to migrate legacy SQL files
@@ -98,7 +98,7 @@ GROUP BY day;
     ODPS_OVERSEAS_ENDPOINT=...
     
     # User Credentials (for Login)
-    # See credentials.toml
+    # See config/credentials.toml
     ```
 3.  **Run Application**:
     You can start the web interface using the following command:
