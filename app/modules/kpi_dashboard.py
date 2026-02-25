@@ -159,8 +159,39 @@ def run():
                 ).interactive()
                 st.altair_chart(mau_chart, use_container_width=True)
 
+        # 4. Integrated Predictive Analytics (New)
+        st.divider()
+        st.subheader("🔮 Predictive Insights")
+        pred_tab1, pred_tab2 = st.tabs(["MAU Forecasting", "LTV Benchmarks"])
+
+        with pred_tab1:
+            st.info("Showing projected growth based on current retention trends.")
+            # Interface with Client output data
+            client_output_dir = os.path.abspath(os.path.join(base_dir, "..", "fivecross-data-client", "data", "output"))
+            mau_reports = glob.glob(os.path.join(client_output_dir, "MAU_Report_*.xlsx"))
+            if mau_reports:
+                latest_mau = max(mau_reports, key=os.path.getmtime)
+                df_mau = pd.read_excel(latest_mau)
+                st.line_chart(df_mau, x='data_date', y='mau')
+                st.caption(f"Source: {os.path.basename(latest_mau)}")
+            else:
+                st.warning("No MAU reports found in Client output. Run 'fetch' and 'predict' in Client first.")
+
+        with pred_tab2:
+            st.info("Real-time LTV decay and recovery analysis.")
+            ltv_reports = glob.glob(os.path.join(client_output_dir, "LTV_Report_*.xlsx"))
+            if ltv_reports:
+                latest_ltv = max(ltv_reports, key=os.path.getmtime)
+                df_ltv = pd.read_excel(latest_ltv)
+                st.area_chart(df_ltv, x='num_day', y='predicted_ltv')
+            else:
+                st.warning("No LTV reports found in Client output.")
+
     else:
-        st.info("Plese click 'Generate Report' in the sidebar to load data.")
+        st.info("Please click 'Generate Report' in the sidebar to load data.")
+
+import glob
+import os
 
 if __name__ == "__main__":
     run()
