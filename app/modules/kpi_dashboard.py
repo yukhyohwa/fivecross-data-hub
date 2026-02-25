@@ -167,6 +167,7 @@ def run():
         with pred_tab1:
             st.info("Showing projected growth based on current retention trends.")
             # Interface with Client output data
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             client_output_dir = os.path.abspath(os.path.join(base_dir, "..", "fivecross-data-client", "data", "output"))
             mau_reports = glob.glob(os.path.join(client_output_dir, "MAU_Report_*.xlsx"))
             if mau_reports:
