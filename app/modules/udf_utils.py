@@ -2,6 +2,7 @@ from odps import ODPS
 import psycopg2
 import pandas as pd
 import app.config as config
+import app.modules.ta_connector as ta_connector
 
 def get_odps_connection(region):
     # Map region 'domestic'/'overseas' to config keys
@@ -32,7 +33,7 @@ def get_holo_connection(region):
 
 def execute_sql(engine, region, sql, config_ignored=None):
     """
-    Execute SQL on ODPS or Holo.
+    Execute SQL on ODPS, Holo, or ThinkingData (TA).
     config_ignored: kept for backward compatibility with function signature if needed, but ignored.
     """
     if engine == 'odps':
@@ -52,5 +53,17 @@ def execute_sql(engine, region, sql, config_ignored=None):
         conn.close()
         df = pd.DataFrame(results, columns=column_names)
         return df
+    elif engine == 'ta':
+        # Retrieve TA credentials
+        # region parameter could be used if we support multiple TA clusters/projects
+        # For now, we use the global config as implemented in config.py
+        creds = config.get_ta_credentials(region)
+        url = creds.get('url')
+        token = creds.get('token')
+
+        if not url or not token:
+             raise ValueError("ThinkingData credentials not configured.")
+
+        return ta_connector.execute_sql(sql, url, token)
     else:
         raise ValueError(f"Unsupported engine: {engine}")

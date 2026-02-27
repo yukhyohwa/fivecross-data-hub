@@ -2,7 +2,7 @@ import streamlit as st
 import re
 import pandas as pd
 import io
-from app.modules.odps_query import create_odps_instance
+from app.modules.udf_utils import execute_sql # Updated to use unified execute_sql
 import os
 from datetime import datetime
 
@@ -112,8 +112,13 @@ def run():
     
     # Get Config for selected game
     game_config = GAMES_CONFIG[selected_key]
-    location = game_config['environment'] # 'domestic' or 'overseas' 
-    location_cn = "海外" if (location == 'overseas' or location == 'overseas_v2') else "国内"
+    default_engine = game_config.get('engine', 'odps')
+
+    # Determine execution context
+    engine = default_engine
+
+    # Display Engine Info
+    st.caption(f"🔌 Connected Engine: **{engine.upper()}** ({game_config.get('environment', 'N/A')})")
 
     # 2. Load Templates
     templates = load_templates_for_game(selected_key)
@@ -154,7 +159,12 @@ def run():
                     name_lower = p.lower()
                     if 'day' in name_lower or 'date' in name_lower:
                         val = st.date_input(f"{p}", key=f"d_{p}")
-                        params[p] = val.strftime("%Y%m%d") # Format to 8-digit Integer-String (e.g., 20250101)
+                        # For ODPS/Holo, we often use 20250101 (int/str)
+                        # For TA, it might be '2025-01-01'
+                        # We stick to the config standard or assume YYYYMMDD for now to keep existing templates working.
+                        # If a TA template needs YYYY-MM-DD, the template should handle formatting or we improve logic here.
+                        # Most ODPS templates expect YYYYMMDD.
+                        params[p] = val.strftime("%Y%m%d")
                     else:
                         # Use text input for IDs, names, counters, etc.
                         val = st.text_input(f"{p}", key=f"t_{p}")
@@ -162,28 +172,20 @@ def run():
 
         st.markdown("---")
         
-        # 4. Output Format Selection
-# 4. Execution Area
-    if st.button("Run Query", type="primary"):
-        try:
-            final_sql = template['sql'].format(**params)
-            
-            # Debug: Show the actual SQL being run (to verify date formats)
-            with st.expander("Debug: Final Executed SQL (Check Date Format)", expanded=False):
-                st.code(final_sql, language='sql')
+        # 4. Execution Area
+        if st.button("Run Query", type="primary"):
+            try:
+                final_sql = template['sql'].format(**params)
 
-            # Extract project override if configured
-            project_override = game_config.get('odps_project')
-            
-            o = create_odps_instance(location, project_override)
-            if not o:
-                st.stop()
+                # Debug: Show the actual SQL being run (to verify date formats)
+                with st.expander("Debug: Final Executed SQL", expanded=False):
+                    st.code(final_sql, language='sql')
+
+                location = game_config.get('environment')
                 
-            with st.spinner(f"Running query on {location}..."):
-                with o.execute_sql(final_sql).open_reader() as reader:
-                    data = [record.values for record in reader]
-                    columns = [col.name for col in reader._schema.columns]
-                    df = pd.DataFrame(data, columns=columns)
+                with st.spinner(f"Running query on {engine.upper()} ({location})..."):
+                    # Use the unified execute_sql from udf_utils
+                    df = execute_sql(engine, location, final_sql)
                     
                     # Store result in session state
                     st.session_state['uni_query_result'] = df
@@ -193,8 +195,8 @@ def run():
                     
                     st.rerun() # Rerun to refresh the state and show results
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
     # 5. Result Display & Export
     if 'uni_query_result' in st.session_state:

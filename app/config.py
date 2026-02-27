@@ -42,3 +42,14 @@ def get_hologres_credentials(location):
             'password': os.getenv('HOLO_OVERSEAS_PASSWORD')
         }
     return None
+
+def get_ta_credentials(location=None):
+    """
+    Get ThinkingData credentials.
+    Currently supports a single global configuration or can be extended for per-game tokens.
+    """
+    # For now, we assume a single set of credentials or generic retrieval
+    return {
+        'url': os.getenv('TA_API_URL'),
+        'token': os.getenv('TA_API_TOKEN')
+    }

@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from app.modules.udf_utils import execute_sql
 import altair as alt
+from app.games_config import GAMES_CONFIG
 
 # --- Caching Data Fetching ---
 # Using cache_data to prevent repetitive queries during session
@@ -9,39 +10,78 @@ import altair as alt
 def fetch_kpi_data(start_month, end_month):
     """
     Fetches KPI data from both Domestic and Overseas ODPS, merging them.
+    Also fetches from ThinkingData (TA) if configured.
     Cached for 1 hour to improve performance on recurring view.
     """
     # Load SQL from template
     import os
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    template_path = os.path.join(base_dir, 'sql_templates', 'system', 'kpi_overview.sql')
+    template_path_odps = os.path.join(base_dir, 'sql_templates', 'system', 'kpi_overview.sql')
+    template_path_ta = os.path.join(base_dir, 'sql_templates', 'system', 'kpi_overview_ta.sql')
     
-    with open(template_path, 'r', encoding='utf-8') as f:
-        raw_sql = f.read()
+    with open(template_path_odps, 'r', encoding='utf-8') as f:
+        raw_sql_odps = f.read()
+
+    # If we have TA games, read TA template
+    raw_sql_ta = ""
+    if os.path.exists(template_path_ta):
+         with open(template_path_ta, 'r', encoding='utf-8') as f:
+            raw_sql_ta = f.read()
         
-    # Format SQL
-    sql_query = raw_sql.format(start_month=start_month, end_month=end_month)
+    # Format SQL for ODPS
+    sql_query_odps = raw_sql_odps.format(start_month=start_month, end_month=end_month)
     
     frames = []
     
-    # Domestic Fetch
+    # --- 1. ODPS Fetch (Domestic) ---
     try:
-        df_dom = execute_sql('odps', 'domestic', sql_query)
+        df_dom = execute_sql('odps', 'domestic', sql_query_odps)
         if df_dom is not None and not df_dom.empty:
             df_dom['Environment'] = 'Domestic'
+            df_dom['Source'] = 'ODPS'
             frames.append(df_dom)
     except Exception as e:
         # Log via warning but don't crash
         st.warning(f"Domestic Data Fetch Warning: {e}")
 
-    # Overseas Fetch
+    # --- 2. ODPS Fetch (Overseas) ---
     try:
-        df_ovs = execute_sql('odps', 'overseas', sql_query)
+        df_ovs = execute_sql('odps', 'overseas', sql_query_odps)
         if df_ovs is not None and not df_ovs.empty:
             df_ovs['Environment'] = 'Overseas'
+            df_ovs['Source'] = 'ODPS'
             frames.append(df_ovs)
     except Exception as e:
         st.warning(f"Overseas Data Fetch Warning: {e}")
+
+    # --- 3. ThinkingData Fetch ---
+    # Iterate over configured games to see if any use TA engine
+    for key, config in GAMES_CONFIG.items():
+        if config.get('engine') == 'ta':
+            try:
+                # Format TA SQL for this specific game
+                # Assuming TA SQL template uses game-specific placeholders
+                sql_query_ta = raw_sql_ta.format(
+                    game_id=config.get('game_id'),
+                    game_name=config.get('label'),
+                    start_month=start_month,
+                    end_month=end_month
+                )
+
+                # Execute against TA
+                # Region/Environment for TA is usually handled by the URL in config
+                # We can pass 'global' or the config's environment
+                df_ta = execute_sql('ta', config.get('environment', 'global'), sql_query_ta)
+
+                if df_ta is not None and not df_ta.empty:
+                    # Standardize columns to match ODPS result
+                    # ODPS result columns: app_id, app_name, region, obt_start_date, data_date, num_login_accounts_total, num_login_accounts_nuu, purchase
+                    # TA SQL should return same alias
+                    df_ta['Environment'] = 'Global (TA)'
+                    df_ta['Source'] = 'ThinkingData'
+                    frames.append(df_ta)
+            except Exception as e:
+                st.warning(f"ThinkingData Fetch Warning for {config.get('label')}: {e}")
 
     if not frames:
         return pd.DataFrame()
@@ -50,7 +90,25 @@ def fetch_kpi_data(start_month, end_month):
     data = pd.concat(frames, ignore_index=True)
     
     # Standardize Column Names
-    data.columns = ['Game ID', 'Game Name', 'Region', 'OBT Date', 'Month', 'MAU', 'NUU', 'Revenue', 'Environment']
+    # Note: Ensure the column order/names align with the ODPS query output
+    # ODPS Query Selects: app_id, app_name, region, obt_start_date, data_date, num_login_accounts_total, num_login_accounts_nuu, purchase
+    # We appended 'Environment' and 'Source'
+
+    # Check if columns match expected length before renaming
+    # Expected: 8 original + 2 added = 10 columns
+    if len(data.columns) >= 10:
+        # We rename the first 8 columns explicitly to display names, keeping the last ones
+        data.rename(columns={
+            'app_id': 'Game ID',
+            'app_name': 'Game Name',
+            'region': 'Region',
+            'obt_start_date': 'OBT Date',
+            'data_date': 'Month',
+            'num_login_accounts_total': 'MAU',
+            'num_login_accounts_nuu': 'NUU',
+            'purchase': 'Revenue'
+        }, inplace=True)
+
     return data
 
 def run():
@@ -72,7 +130,7 @@ def run():
             data = fetch_kpi_data(start_month, end_month)
         
         if data.empty:
-            st.error("No data returned. Please check ODPS connections or date range.")
+            st.error("No data returned. Please check ODPS/TA connections or date range.")
             return
 
         # 1. High Level Summary (Aggregated for Latest Month)
@@ -112,7 +170,7 @@ def run():
                                 .merge(rev_trend, on='Game ID')
                                 
         # Select and Rename for Display
-        cols_to_show = ['Game Name', 'Region', 'Month', 'Revenue', 'Revenue_List', 'MAU', 'MAU_List', 'NUU', 'NUU_List']
+        cols_to_show = ['Game Name', 'Region', 'Source', 'Month', 'Revenue', 'Revenue_List', 'MAU', 'MAU_List', 'NUU', 'NUU_List']
         
         st.dataframe(
             viz_df[cols_to_show],
@@ -120,6 +178,7 @@ def run():
             column_config={
                 'Game Name': st.column_config.TextColumn("Game Project", width="medium"),
                 'Region': st.column_config.TextColumn("Region", width="small"),
+                'Source': st.column_config.TextColumn("Source", width="small"),
                 'Month': st.column_config.TextColumn("Data Month", width="small"),
                 'Revenue': st.column_config.NumberColumn("Revenue (Latest)", format="¥%d"),
                 'Revenue_List': st.column_config.AreaChartColumn("Revenue Trend", y_min=0, width="small"),
@@ -145,7 +204,7 @@ def run():
                     x=alt.X('Month:T', axis=alt.Axis(format='%Y-%m', title='Month')),
                     y=alt.Y('Revenue', title='Revenue (CNY)'),
                     color='Game Name',
-                    tooltip=['Game Name', 'Region', 'Month', alt.Tooltip('Revenue', format=',.0f')]
+                    tooltip=['Game Name', 'Region', 'Source', 'Month', alt.Tooltip('Revenue', format=',.0f')]
                 ).interactive()
                 st.altair_chart(rev_chart, use_container_width=True)
             
@@ -155,7 +214,7 @@ def run():
                     x=alt.X('Month:T', axis=alt.Axis(format='%Y-%m')),
                     y=alt.Y('MAU', title='Monthly Active Users'),
                     color='Game Name',
-                    tooltip=['Game Name', 'Region', 'Month', alt.Tooltip('MAU', format=',')]
+                    tooltip=['Game Name', 'Region', 'Source', 'Month', alt.Tooltip('MAU', format=',')]
                 ).interactive()
                 st.altair_chart(mau_chart, use_container_width=True)
 
