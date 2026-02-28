@@ -43,6 +43,10 @@ GAMES_CONFIG = {
     #     "game_id": "ta_appid_123",
     #     "engine": "ta"
     # }
+    # NOTE: To include a TA game in the KPI Dashboard, you must provide a custom
+    # 'kpi_overview.sql' file within its specific 'folder'. The system does NOT
+    # provide a default TA template because schemas vary widely between games.
+    # If the file is missing or lacks required fields (like revenue), it will be skipped.
 }
 
 def get_game_config(key):

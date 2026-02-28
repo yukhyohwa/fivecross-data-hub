@@ -10,24 +10,16 @@ from app.games_config import GAMES_CONFIG
 def fetch_kpi_data(start_month, end_month):
     """
     Fetches KPI data from both Domestic and Overseas ODPS, merging them.
-    Also fetches from ThinkingData (TA) if configured.
+    Also fetches from ThinkingData (TA) if a specific KPI template is configured for the game.
     Cached for 1 hour to improve performance on recurring view.
     """
-    # Load SQL from template
     import os
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     template_path_odps = os.path.join(base_dir, 'sql_templates', 'system', 'kpi_overview.sql')
-    template_path_ta = os.path.join(base_dir, 'sql_templates', 'system', 'kpi_overview_ta.sql')
     
     with open(template_path_odps, 'r', encoding='utf-8') as f:
         raw_sql_odps = f.read()
 
-    # If we have TA games, read TA template
-    raw_sql_ta = ""
-    if os.path.exists(template_path_ta):
-         with open(template_path_ta, 'r', encoding='utf-8') as f:
-            raw_sql_ta = f.read()
-        
     # Format SQL for ODPS
     sql_query_odps = raw_sql_odps.format(start_month=start_month, end_month=end_month)
     
@@ -54,13 +46,24 @@ def fetch_kpi_data(start_month, end_month):
     except Exception as e:
         st.warning(f"Overseas Data Fetch Warning: {e}")
 
-    # --- 3. ThinkingData Fetch ---
-    # Iterate over configured games to see if any use TA engine
+    # --- 3. ThinkingData Fetch (Game Specific) ---
+    # Since TA games have different tables and logic, they MUST have a custom 'kpi_overview.sql'
+    # in their specific folder to be included in the global dashboard.
     for key, config in GAMES_CONFIG.items():
         if config.get('engine') == 'ta':
+            folder = config.get('folder')
+            if not folder:
+                continue
+
+            template_path_ta = os.path.join(base_dir, 'sql_templates', folder, 'kpi_overview.sql')
+
+            if not os.path.exists(template_path_ta):
+                continue # Skip TA games without a specific KPI template
+
             try:
-                # Format TA SQL for this specific game
-                # Assuming TA SQL template uses game-specific placeholders
+                with open(template_path_ta, 'r', encoding='utf-8') as f:
+                    raw_sql_ta = f.read()
+
                 sql_query_ta = raw_sql_ta.format(
                     game_id=config.get('game_id'),
                     game_name=config.get('label'),
@@ -68,15 +71,10 @@ def fetch_kpi_data(start_month, end_month):
                     end_month=end_month
                 )
 
-                # Execute against TA
-                # Region/Environment for TA is usually handled by the URL in config
-                # We can pass 'global' or the config's environment
                 df_ta = execute_sql('ta', config.get('environment', 'global'), sql_query_ta)
 
                 if df_ta is not None and not df_ta.empty:
-                    # Standardize columns to match ODPS result
-                    # ODPS result columns: app_id, app_name, region, obt_start_date, data_date, num_login_accounts_total, num_login_accounts_nuu, purchase
-                    # TA SQL should return same alias
+                    # Expecting standardized columns: app_id, app_name, region, obt_start_date, data_date, num_login_accounts_total, num_login_accounts_nuu, purchase
                     df_ta['Environment'] = 'Global (TA)'
                     df_ta['Source'] = 'ThinkingData'
                     frames.append(df_ta)
@@ -90,14 +88,8 @@ def fetch_kpi_data(start_month, end_month):
     data = pd.concat(frames, ignore_index=True)
     
     # Standardize Column Names
-    # Note: Ensure the column order/names align with the ODPS query output
     # ODPS Query Selects: app_id, app_name, region, obt_start_date, data_date, num_login_accounts_total, num_login_accounts_nuu, purchase
-    # We appended 'Environment' and 'Source'
-
-    # Check if columns match expected length before renaming
-    # Expected: 8 original + 2 added = 10 columns
     if len(data.columns) >= 10:
-        # We rename the first 8 columns explicitly to display names, keeping the last ones
         data.rename(columns={
             'app_id': 'Game ID',
             'app_name': 'Game Name',
